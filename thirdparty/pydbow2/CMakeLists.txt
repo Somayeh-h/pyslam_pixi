@@ -42,7 +42,7 @@ if(BUILD_WITH_MARCH_NATIVE)
     endif()
 endif() 
 
-add_subdirectory(modules/pybind11)
+find_package(pybind11 REQUIRED)
 
 find_package(OpenCV REQUIRED)
 find_package(Boost REQUIRED COMPONENTS system serialization filesystem)
