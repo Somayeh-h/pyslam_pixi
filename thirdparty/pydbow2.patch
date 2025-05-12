@@ -1,0 +1,13 @@
+diff --git a/thirdparty/pydbow2/CMakeLists.txt b/thirdparty/pydbow2/CMakeLists.txt
+index a1c69158..de9f24a6 100644
+--- a/thirdparty/pydbow2/CMakeLists.txt
++++ b/thirdparty/pydbow2/CMakeLists.txt
+@@ -42,7 +42,7 @@ if(BUILD_WITH_MARCH_NATIVE)
+     endif()
+ endif() 
+ 
+-add_subdirectory(modules/pybind11)
++find_package(pybind11 REQUIRED)
+ 
+ find_package(OpenCV REQUIRED)
+ find_package(Boost REQUIRED COMPONENTS system serialization filesystem)

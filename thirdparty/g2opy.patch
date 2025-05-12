@@ -106,12 +106,11 @@ index 254b745..dd0830a 100644
  
  };
 diff --git a/python/CMakeLists.txt b/python/CMakeLists.txt
-index c44a30b..09cefc1 100644
+index c44a30b..223123b 100644
 --- a/python/CMakeLists.txt
 +++ b/python/CMakeLists.txt
-@@ -1,9 +1,19 @@
+@@ -1,15 +1,20 @@
 +set(WITH_PYTHON_INTERP_CHECK OFF CACHE BOOL "Checking python interpreter") # to be activated when called within virtual python environment 
-+
  include_directories(${PROJECT_SOURCE_DIR})
  
  include_directories(${EIGEN3_INCLUDE_DIR})
@@ -127,15 +126,15 @@ index c44a30b..09cefc1 100644
 +  message(STATUS "PythonLibs: ${PythonLibs}")
 +endif()
  
- # pybind11 (version 2.2.1)
- LIST(APPEND CMAKE_MODULE_PATH ${PROJECT_SOURCE_DIR}/EXTERNAL/pybind11/tools)
-@@ -31,4 +41,4 @@ target_link_libraries(g2o PRIVATE
-     types_slam3d
-     types_slam3d_addons
-     contrib
--)
-\ No newline at end of file
-+)
+-# pybind11 (version 2.2.1)
+-LIST(APPEND CMAKE_MODULE_PATH ${PROJECT_SOURCE_DIR}/EXTERNAL/pybind11/tools)
+-include_directories(${PROJECT_SOURCE_DIR}/EXTERNAL/pybind11/include)
+-include(pybind11Tools)
+-
++find_package(pybind11 REQUIRED)
+ 
+ pybind11_add_module(g2o g2o.cpp)
+ target_link_libraries(g2o PRIVATE 
 diff --git a/python/core/eigen_types.h b/python/core/eigen_types.h
 index b58d529..24a53f2 100644
 --- a/python/core/eigen_types.h
