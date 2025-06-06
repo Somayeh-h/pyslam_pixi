@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-pixi shell
+# activate env in the terminal using 'pixi shell'
 
 
 ./install_git_modules.sh
@@ -19,13 +19,14 @@ cd pangolin
 git submodule init && git submodule update
 mkdir build
 cd build
-cmake ../ -DAVFORMAT_INCLUDE_DIR="" # -DCPP11_NO_BOOST=ON
+cmake ../ -DAVFORMAT_INCLUDE_DIR=""
 make -j8
-# cd src
-ln -s pypangolin.*-linux-gnu.so  pangolin.linux-gnu.so
-cd ../../
+# ln -s pypangolin.*-linux-gnu.so  pangolin.linux-gnu.so
+# ln -s pypangolin-0.9.3.data/purelib/pypangolin.*-linux-gnu.so  pangolin.linux-gnu.so
+cd ..
 
-# cd thirdparty
+
+cd thirdparty
 git clone https://github.com/uoip/g2opy.git
 cd g2opy
 git checkout 5587024
