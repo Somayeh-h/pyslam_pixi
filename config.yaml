@@ -7,6 +7,7 @@ DATASET:
   #type: REPLICA_DATASET
   #type: TARTANAIR_DATASET
   type: VIDEO_DATASET
+  #type: SCANNET_DATASET
   #type: ROS1BAG_DATASET
   #type: ROS2BAG_DATASET  
   #type: FOLDER_DATASET
@@ -93,6 +94,15 @@ REPLICA_DATASET:
   base_path: /home/luigi/Work/datasets/rgbd_datasets/replica
   name: 'office0'
   settings: settings/REPLICA.yaml 
+  groundtruth_file: auto
+
+
+SCANNET_DATASET:
+  type: scannet
+  sensor_type: rgbd # Here, 'sensor_type' can be 'mono' or 'rgbd'
+  base_path: /home/luigi/Work/datasets/rgbd_datasets/scannet
+  name: 'scene0000_00'
+  settings: settings/SCANNET.yaml # do not forget to set the corresponding camera settings file 
   groundtruth_file: auto
 
 

@@ -64,6 +64,9 @@ set(CMAKE_CXX_FLAGS "-O2")
 
 # Function to detect CUDA architectures
 function(detect_cuda_architectures ARCHS)
+  # Explicit list of invalid/future/unsupported architectures
+  set(INVALID_CUDA_ARCHS 100 101 120)
+
   execute_process(
     COMMAND nvcc --list-gpu-arch
     OUTPUT_VARIABLE GPU_ARCHS_OUTPUT
@@ -71,27 +74,92 @@ function(detect_cuda_architectures ARCHS)
     ERROR_QUIET
   )
 
-  # Parse the output and extract architectures
   string(REPLACE "\n" ";" GPU_ARCHS_LIST "${GPU_ARCHS_OUTPUT}")
   set(DETECTED_ARCHS "")
+  set(FILTERED_ARCHS "")
+
   foreach(ARCH ${GPU_ARCHS_LIST})
     string(REGEX MATCH "compute_([0-9]+)" _ ${ARCH})
     if(NOT "${CMAKE_MATCH_1}" STREQUAL "")
-      list(APPEND DETECTED_ARCHS "${CMAKE_MATCH_1}")
+      set(ARCH_CODE "${CMAKE_MATCH_1}")
+
+      list(FIND INVALID_CUDA_ARCHS ${ARCH_CODE} INDEX)
+      if(INDEX GREATER -1)
+        list(APPEND FILTERED_ARCHS "${ARCH_CODE}")
+      else()
+        list(APPEND DETECTED_ARCHS "${ARCH_CODE}")
+      endif()
     endif()
   endforeach()
 
+  # Set the result variable
   if(DETECTED_ARCHS)
+    list(REMOVE_DUPLICATES DETECTED_ARCHS)
     set(${ARCHS} ${DETECTED_ARCHS} PARENT_SCOPE)
   else()
-    message(WARNING "No CUDA architectures detected. Falling back to default.")
-    set(${ARCHS} "70" PARENT_SCOPE) # Default to a commonly supported architecture
+    message(WARNING "No valid CUDA architectures detected. Falling back to default.")
+    set(${ARCHS} "70" PARENT_SCOPE)
   endif()
+
+  # Export filtered architectures as well
+  set(FILTERED_CUDA_ARCHS ${FILTERED_ARCHS} PARENT_SCOPE)
+
+  # Log info
+  message(STATUS "nvcc --list-gpu-arch raw output:\n${GPU_ARCHS_OUTPUT}")
+  message(STATUS "Accepted CUDA architectures: ${DETECTED_ARCHS}")
+  message(STATUS "Filtered-out (unsupported) architectures: ${FILTERED_ARCHS}")
 endfunction()
+
+# Function to detect architecture of the current GPU only
+function(detect_current_cuda_architecture ARCH)
+  # Try to get the GPU name
+  execute_process(
+    COMMAND nvidia-smi --query-gpu=name --format=csv,noheader
+    OUTPUT_VARIABLE GPU_NAME
+    OUTPUT_STRIP_TRAILING_WHITESPACE
+    ERROR_QUIET
+  )
+
+  # Lowercase and remove spaces
+  string(TOLOWER "${GPU_NAME}" GPU_NAME_LOWER)
+  string(REPLACE " " "" GPU_NAME_CLEAN "${GPU_NAME_LOWER}")
+
+  # Map GPU name to compute capability
+  set(SM "70") # Default fallback
+
+  if(GPU_NAME_CLEAN MATCHES "a100")
+    set(SM "80")
+  elseif(GPU_NAME_CLEAN MATCHES "v100")
+    set(SM "70")
+  elseif(GPU_NAME_CLEAN MATCHES "rtx30|3090|3080|3070|3060")
+    set(SM "86")
+  elseif(GPU_NAME_CLEAN MATCHES "rtx40|4090|4080|4070|4060")
+    set(SM "89")
+  elseif(GPU_NAME_CLEAN MATCHES "rtxa6000|a10")
+    set(SM "86")
+  elseif(GPU_NAME_CLEAN MATCHES "t4")
+    set(SM "75")
+  elseif(GPU_NAME_CLEAN MATCHES "p100")
+    set(SM "60")
+  elseif(GPU_NAME_CLEAN MATCHES "k80")
+    set(SM "37")
+  elseif(GPU_NAME_CLEAN MATCHES "2080|2070|2060")
+    set(SM "75")
+  endif()
+
+  message(STATUS "Detected GPU: ${GPU_NAME}")
+  message(STATUS "Using CUDA SM architecture: ${SM}")
+
+  set(${ARCH} ${SM} PARENT_SCOPE)
+endfunction()
+
+# Detect current machine GPU architecture
+# detect_current_cuda_architecture(CURRENT_CUDA_ARCH)
+# set(CMAKE_CUDA_ARCHITECTURES ${CURRENT_CUDA_ARCH})
+# message(STATUS "Set CMAKE_CUDA_ARCHITECTURES=${CMAKE_CUDA_ARCHITECTURES}")
 
 # Detect CUDA architectures and set them
 detect_cuda_architectures(CUDA_ARCHITECTURES)
-
 # Set CUDA architectures
 set(CMAKE_CUDA_ARCHITECTURES ${CUDA_ARCHITECTURES})
 message(STATUS "Detected CUDA architectures: ${CMAKE_CUDA_ARCHITECTURES}")
@@ -242,4 +310,3 @@ message(STATUS "GCC CXX flags: ${CMAKE_CXX_FLAGS}")
 if(CMAKE_CUDA_COMPILER)
     message(STATUS "NVCC flags: ${CMAKE_CUDA_FLAGS} ${CUDA_FLAGS} ${CUDA_NVCC_FLAGS}")
 endif()
-

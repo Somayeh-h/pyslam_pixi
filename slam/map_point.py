@@ -25,8 +25,10 @@ from threading import RLock, Lock, Thread
 from utils_geom import poseRt, add_ones, normalize_vector, normalize_vector2
 from frame import Frame, FeatureTrackerShared
 from utils_sys import Printer
-
 from config_parameters import Parameters
+
+from semantic_mapping_shared import SemanticMappingShared
+from semantic_serialization import serialize_semantic_des, deserialize_semantic_des
 
 from typing import TYPE_CHECKING
 if TYPE_CHECKING:
@@ -51,7 +53,6 @@ class MapPointBase(object):
         
         self._observations = dict() # keyframe observations (used by mapping methods)
                                     # for kf, kidx in self._observations.items(): kf.points[kidx] = this point
-        
         self._frame_views = dict()  # frame observations (used for drawing the tracking keypoint trails, frame by frame)
                                     # for f, idx in self._frame_views.items(): f.points[idx] = this point
                 
@@ -278,6 +279,7 @@ class MapPoint(MapPointBase):
         self._pt = np.array(position)  # position in the world frame
 
         self.color = color
+        self.semantic_des = None
             
         self.des = None  # best descriptor (continuously updated)
         self._min_distance, self._max_distance = 0, float('inf')  # depth infos 
@@ -302,6 +304,7 @@ class MapPoint(MapPointBase):
   
         self.num_observations_on_last_update_des = 1       # must be 1!    
         self.num_observations_on_last_update_normals = 1   # must be 1!
+        self.num_observations_on_last_update_semantics = 1 # must be 1!    
         
         # for GBA
         self.pt_GBA = None
@@ -334,6 +337,7 @@ class MapPoint(MapPointBase):
                 'last_frame_id_seen': self.last_frame_id_seen,
                 'pt': self.pt.tolist(),
                 'color': self.color,
+                'semantic_des': serialize_semantic_des(self.semantic_des, SemanticMappingShared.semantic_feature_type),
                 'des': self.des.tolist(),
                 '_min_distance': self._min_distance,
                 '_max_distance': self._max_distance,
@@ -360,6 +364,8 @@ class MapPoint(MapPointBase):
         p.normal = np.array(json_str['normal'])
         p.first_kid = json_str['first_kid']
         p.kf_ref = json_str['kf_ref']
+        
+        p.semantic_des, semantic_type = deserialize_semantic_des(json_str['semantic_des']) 
         return p
                     
     def replace_ids_with_objects(self, points, frames, keyframes):
@@ -580,6 +586,7 @@ class MapPoint(MapPointBase):
         if skip or len(observations)==0:
             return 
         descriptors = [kf.des[idx] for kf,idx in observations if not kf.is_bad]
+
         N = len(descriptors)
         if N > 2:
             #median_distances = [ np.median([FeatureTrackerShared.descriptor_distance(d, descriptors[i]) for d in descriptors]) for i in range(N) ]
@@ -590,6 +597,23 @@ class MapPoint(MapPointBase):
             #print('median_distances: ', median_distances)
             #print('des: ', self.des)        
 
+    def update_semantics(self, semantic_fusion_method, force=False):
+        skip = False
+        with self._lock_features:
+            if self._is_bad:
+                return                          
+            if self._num_observations > self.num_observations_on_last_update_semantics or force:    # implicit if self._num_observations > 1   
+                self.num_observations_on_last_update_semantics = self._num_observations      
+                observations = list(self._observations.items())
+            else: 
+                skip = True
+        if skip or len(observations)==0:
+            return 
+        semantics = [kf.kps_sem[idx] for kf, idx in observations if kf.kps_sem is not None]
+        if len(semantics) > 2:
+            fused_semantics = semantic_fusion_method(semantics)
+            with self._lock_features:
+                self.semantic_des = fused_semantics
 
     def update_info(self):
         #if self._is_bad:

@@ -3,13 +3,14 @@
 <!-- TOC -->
 
 - [System Overview](#system-overview)
-  - [SLAM Workflow and Components](#slam-workflow-and-components)
-  - [Main System Components](#main-system-components)
-    - [Feature Tracker](#feature-tracker)
-    - [Feature Matcher](#feature-matcher)
-    - [Loop Detector](#loop-detector)
-    - [Depth Estimator](#depth-estimator)
-    - [Volumetric Integrator](#volumetric-integrator)
+    - [1. SLAM Workflow and Components](#1-slam-workflow-and-components)
+    - [2. Main System Components](#2-main-system-components)
+        - [2.1. Feature Tracker](#21-feature-tracker)
+        - [2.2. Feature Matcher](#22-feature-matcher)
+        - [2.3. Loop Detector](#23-loop-detector)
+        - [2.4. Depth Estimator](#24-depth-estimator)
+        - [2.5. Volumetric Integrator](#25-volumetric-integrator)
+        - [2.6. Semantic Mapping](#26-semantic-mapping)
 
 <!-- /TOC -->
 
@@ -23,12 +24,19 @@ This document provides a high-level system overview, including diagrams that ill
 <img src="./images/slam_workflow.png" alt="SLAM Workflow"  /> 
 </p>
 
-This figure illustrates the SLAM workflow, which is composed of **five main parallel processing modules**:
-- *Tracking*: estimates the camera pose for each incoming frame by extracting and matching local features to the local map, followed by minimizing the reprojection error through motion-only Bundle Adjustment (BA). It includes components such as pose prediction (or relocalization), feature tracking, local map tracking, and keyframe decision-making.
-- *Local Mapping*: updates and refines the local map by processing new keyframes. This involves culling redundant map points, creating new points via temporal triangulation, fusing nearby map points, performing Local BA, and pruning redundant local keyframes.
-- *Loop Closing*: detects and validates loop closures to correct drift accumulated over time. Upon loop detection, it performs loop group consistency checks and geometric verification, applies corrections, and then launches Pose Graph Optimization (PGO) followed by a full Global Bundle Adjustment (GBA). Loop detection itself is delegated to a parallel process, the *Loop Detector*, which operates independently for better responsiveness and concurrency.
-- *Global Bundle Adjustment*: triggered by the Loop Closing module after PGO, this step globally optimizes the trajectory and the sparse structure of the map to ensure consistency across the entire sequence.
-- *Volumetric Integration*: uses the keyframes, with their estimated poses and back-projected point clouds, to reconstruct a dense 3D map of the environment. This module optionally integrates predicted depth maps and maintains a volumetric representation such as a TSDF or Gaussian Splatting-based volume.
+This figure illustrates the SLAM workflow, which is composed of **six main parallel processing modules**:
+
+- **Tracking**: estimates the camera pose for each incoming frame by extracting and matching local features to the local map, followed by minimizing the reprojection error through motion-only Bundle Adjustment (BA). It includes components such as pose prediction (or relocalization), feature tracking, local map tracking, and keyframe decision-making.
+
+- **Local Mapping**: updates and refines the local map by processing new keyframes. This involves culling redundant map points, creating new points via temporal triangulation, fusing nearby map points, performing Local BA, and pruning redundant local keyframes.
+
+- **Loop Closing**: detects and validates loop closures to correct drift accumulated over time. Upon loop detection, it performs loop group consistency checks and geometric verification, applies corrections, and then launches Pose Graph Optimization (PGO) followed by a full Global Bundle Adjustment (GBA). Loop detection itself is delegated to a parallel process, the *Loop Detector*, which operates independently for better responsiveness and concurrency.
+
+- **Global Bundle Adjustment**: triggered by the Loop Closing module after PGO, this step globally optimizes the trajectory and the sparse structure of the map to ensure consistency across the entire sequence.
+
+- **Volumetric Integration**: uses the keyframes, with their estimated poses and back-projected point clouds, to reconstruct a dense 3D map of the environment. This module optionally integrates predicted depth maps and maintains a volumetric representation such as a TSDF or Gaussian Splatting-based volume.
+
+- **Semantic Mapping**: enriches the SLAM map with dense semantic information by applying pixel-wise segmentation to selected keyframes. Semantic predictions are fused across views to assign semantic labels or descriptors to keyframes and map points. The module operates in parallel, consuming keyframes and associated image data from a queue, applying a configured semantic segmentation model, and updating the map with fused semantic features. This enables advanced downstream tasks such as semantic navigation, scene understanding, and category-level mapping.
 
 The first four modules follow the established PTAM and ORB-SLAM paradigm. Here, the Tracking module serves as the front-end, while the remaining modules operate as part of the back-end.
 
@@ -91,7 +99,7 @@ The section [Supported matchers](../README.md#supported-matchers) reports a list
 <img src="./images/loop_detector.png" alt="Loop Detector"  /> 
 </p>
 
-This diagram shows the architecture of the *Loop Detector* component. A central `loop_detector_factory` instantiates loop detectors based on the selected `global_descriptor_type`, which may include traditional descriptors (e.g., `DBOW2`, `VLAD`, `IBOW`) or deep learning-based embeddings (e.g., `NetVLAD`, `CosPlace`, `EigenPlaces`).
+This diagram shows the architecture of the *Loop Detector* component. A central `loop_detector_factory` instantiates loop detectors based on the selected `global_descriptor_type`, which may include traditional descriptors (e.g., `DBOW2`, `VLAD`, `IBOW`) or deep learning-based embeddings (e.g., `NetVLAD`, `CosPlace`, `EigenPlaces`, `Megaloc`).
 
 Each descriptor type creates a corresponding loop detector implementation (e.g., `LoopDetectorDBoW2`, `LoopDetectorNetVLAD`), all of which inherit from a base class hierarchy. Traditional methods inherit directly from `LoopDetectorBase`, while deep learning-based approaches inherit from `LoopDetectorVprBase`, which itself extends `LoopDetectorBase`. This design supports modular integration of diverse place recognition techniques within a unified loop closure framework.
 
@@ -107,7 +115,7 @@ The last diagram illustrates the architecture of the *Depth Estimator* module. A
 
 Each estimator type instantiates a corresponding implementation (e.g., `DepthEstimatorSgbm`, `DepthEstimatorCrestereo`, etc.), all inheriting from a common `DepthEstimator` interface. This base class encapsulates shared dependencies such as the `camera`, `device`, and `model` components, allowing for modular integration of heterogeneous depth estimation techniques across stereo, monocular, and multi-view pipelines.
 
-Section [Supported depth prediction models](../README.md#supported-depth-prediction-models) provides a list of supported depth estimation/prediction models.
+The section [Supported depth prediction models](../README.md#supported-depth-prediction-models) provides a list of supported depth estimation/prediction models.
 
 
 ### Volumetric Integrator
@@ -121,4 +129,23 @@ This diagram illustrates the structure of the *Volumetric Integrator* module. At
 
 Each type instantiates a dedicated implementation (e.g., `VolumetricIntegratorTSDF`, `VolumetricIntegratorGaussianSplatting`), which inherits from a common `VolumetricIntegratorBase`. This base class encapsulates key components including the `camera`, a `keyframe_queue`, and the `volume`, enabling flexible integration of various 3D reconstruction methods within a unified pipeline.
 
-Section [Supported volumetric mapping methods](../README.md#supported-volumetric-mapping-methods) provides a list of supported volume integration methods.
+The section [Supported volumetric mapping methods](../README.md#supported-volumetric-mapping-methods) provides a list of supported volume integration methods.
+
+### Semantic Mapping
+
+<p align="center">
+<img src="./images/semantic_mapping.png" alt="Semantic Mapping"  /> 
+</p>
+
+This diagram outlines the architecture of the *Semantic Mapping* module. At its core is the `semantic_mapping_factory`, which creates semantic mapping instances according to the selected `semantic_mapping_type`. Currently, the supported type is `DENSE`, which instantiates the `SemanticMappingDense` class. This class extends `SemanticMappingBase` and runs asynchronously in a dedicated thread to process keyframes as they become available.
+
+`SemanticMappingDense` integrates semantic information into the SLAM map by leveraging per-keyframe predictions from a semantic segmentation model. The segmentation model is instantiated via the `semantic_segmentation_factory`, based on the selected `semantic_segmentation_type`. Supported segmentation backends include `DEEPLABV3`, `SEGFORMER`, and `CLIP`, each of which corresponds to a dedicated class (`SemanticSegmentationDeepLabV3`, `SemanticSegmentationSegformer`, `SemanticSegmentationCLIP`) inheriting from the shared `SemanticSegmentationBase`.
+
+The system supports multiple semantic feature representations - such as categorical labels, probability vectors, and high-dimensional feature embeddings - and fuses them into the map using configurable methods like count-based fusion, Bayesian fusion, or feature averaging.
+
+This modular design decouples semantic segmentation from mapping logic, enabling flexible combinations of segmentation models, datasets (e.g., NYU40, Cityscapes), and fusion strategies. It also supports customization via configuration files or programmatic APIs for dataset-specific tuning or deployment.
+
+The section [Supported semantic segmentation methods](../README.md#supported-semantic-segmentation-methods) provides a list of supported semantic segmentation methods.
+
+
+

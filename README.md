@@ -1,4 +1,4 @@
-# pySLAM v2.7.4
+# pySLAM v2.8.0
 
 Author: **[Luigi Freda](https://www.luigifreda.com)**
 
@@ -8,10 +8,11 @@ Author: **[Luigi Freda](https://www.luigifreda.com)**
 - Multiple loop closing methods, including **[descriptor aggregators](#supported-global-descriptors-and-local-descriptor-aggregation-methods)** such as visual Bag of Words (BoW, iBow), Vector of Locally Aggregated Descriptors (VLAD) and modern **[global descriptors](#supported-global-descriptors-and-local-descriptor-aggregation-methods)** (image-wise descriptors).
 - A **[volumetric reconstruction pipeline](#volumetric-reconstruction)** that processes depth and color images using volumetric integration to produce dense reconstructions. It supports **TSDF** with voxel hashing and incremental **Gaussian Splatting**. 
 - Integration of **[depth prediction models](#depth-prediction)** within the SLAM pipeline. These include DepthPro, DepthAnythingV2, RAFT-Stereo, CREStereo, etc.  
+- A suite of segmentation models for **[semantic understanding](#semantic-mapping)** of the scene, such as DeepLabv3, Segformer, and dense CLIP.
 - Additional tools for VO (Visual Odometry) and SLAM, with built-in support for both **g2o** and **GTSAM**, along with custom Python bindings for features not included in the original libraries.
 - Built-in support for over [10 dataset types](#datasets).
 
-pySLAM serves as flexible baseline framework to experiment with VO/SLAM techniques, *[local features](#supported-local-features)*, *[descriptor aggregators](#supported-global-descriptors-and-local-descriptor-aggregation-methods)*, *[global descriptors](#supported-global-descriptors-and-local-descriptor-aggregation-methods)*, *[volumetric integration](#volumetric-reconstruction-pipeline)* and *[depth prediction](#depth-prediction)*. It allows to explore, prototype and develop VO/SLAM pipelines. pySLAM is a research framework and a work in progress. It is not optimized for real-time performances.   
+pySLAM serves as flexible baseline framework to experiment with VO/SLAM techniques, *[local features](#supported-local-features)*, *[descriptor aggregators](#supported-global-descriptors-and-local-descriptor-aggregation-methods)*, *[global descriptors](#supported-global-descriptors-and-local-descriptor-aggregation-methods)*, *[volumetric integration](#volumetric-reconstruction-pipeline)*, *[depth prediction](#depth-prediction)* and *[semantic mapping](#semantic-mapping)*. It allows to explore, prototype and develop VO/SLAM pipelines. pySLAM is a research framework and a work in progress. It is not optimized for real-time performances.   
 
 **Enjoy it!**
 
@@ -33,7 +34,7 @@ pySLAM serves as flexible baseline framework to experiment with VO/SLAM techniqu
 
 <!-- TOC -->
 
-- [pySLAM v2.7.4](#pyslam-v274)
+- [pySLAM v2.8.0](#pyslam-v280)
   - [Table of contents](#table-of-contents)
   - [Overview](#overview)
     - [Main Scripts](#main-scripts)
@@ -62,6 +63,7 @@ pySLAM serves as flexible baseline framework to experiment with VO/SLAM techniqu
       - [Reload and check your dense reconstruction](#reload-and-check-your-dense-reconstruction)
       - [Controlling the spatial distribution of keyframe FOV centers](#controlling-the-spatial-distribution-of-keyframe-fov-centers)
     - [Depth prediction](#depth-prediction)
+    - [Semantic mapping](#semantic-mapping)
     - [Saving and reloading](#saving-and-reloading)
       - [Save the a map](#save-the-a-map)
       - [Reload a saved map and relocalize in it](#reload-a-saved-map-and-relocalize-in-it)
@@ -80,6 +82,7 @@ pySLAM serves as flexible baseline framework to experiment with VO/SLAM techniqu
         - [Global descriptors](#global-descriptors)
     - [Supported depth prediction models](#supported-depth-prediction-models)
     - [Supported volumetric mapping methods](#supported-volumetric-mapping-methods)
+    - [Supported semantic segmentation methods](#supported-semantic-segmentation-methods)
   - [Configuration](#configuration)
     - [Main configuration file](#main-configuration-file)
     - [Datasets](#datasets)
@@ -89,6 +92,7 @@ pySLAM serves as flexible baseline framework to experiment with VO/SLAM techniqu
       - [EuRoC Datasets](#euroc-datasets)
       - [Replica Datasets](#replica-datasets)
       - [Tartanair Datasets](#tartanair-datasets)
+      - [ScanNet Datasets](#scannet-datasets)
       - [ROS1 bags](#ros1-bags)
       - [ROS2 bags](#ros2-bags)
       - [Video and Folder Datasets](#video-and-folder-datasets)
@@ -118,7 +122,7 @@ pySLAM serves as flexible baseline framework to experiment with VO/SLAM techniqu
 
 * `main_slam_evaluation.py` enables automated SLAM evaluation by executing `main_slam.py` across a collection of datasets and configuration presets (see [here](#evaluating-slam)).
 
-Other test/example scripts are provided in the `test` folder.
+Other *test/example scripts* are provided in the `test` folder.
 
 ### System overview      
 
@@ -287,7 +291,7 @@ Once you have trained the vocabulary, you can add it in [loop_closing/loop_detec
 
 Most methods do not require pre-trained vocabularies. Specifically:
 - `iBoW` and `OBindex2`: These methods incrementally build bags of binary words and, if needed, convert (front-end) non-binary descriptors into binary ones. 
-- Others: Methods like `HDC_DELF`, `SAD`, `AlexNet`, `NetVLAD`, `CosPlace`, and `EigenPlaces` directly extract their specific **global descriptors** and process them using dedicated aggregators, independently from the used front-end descriptors.
+- Others: Methods like `HDC_DELF`, `SAD`, `AlexNet`, `NetVLAD`, `CosPlace`, `EigenPlaces`, and `Megaloc` directly extract their specific **global descriptors** and process them using dedicated aggregators, independently from the used front-end descriptors.
 
 As mentioned above, only `DBoW2`, `DBoW3`, and `VLAD` require pre-trained vocabularies.
 
@@ -368,6 +372,24 @@ The available depth prediction models can be utilized both in the SLAM back-end 
 - The depth inference may be very slow (for instance, with DepthPro it takes ~1s per image on my machine). Therefore, the resulting volumetric reconstruction pipeline may be very slow.
 
 Refer to the file `depth_estimation/depth_estimator_factory.py` for further details. Both stereo and monocular prediction approaches are supported. You can test depth prediction/estimation by using the script `main_depth_prediction.py`.
+
+---
+
+### Semantic mapping
+
+The semantic mapping pipeline can be enabled by setting the parameter `kDoSemanticMapping=True` in `config_parameters.py`. The best way of configuring the semantic mapping module used is to modify it in `semantic_mapping_configs.py`.
+
+Different semantic mapping methods are available (see [here](./docs/semantics.md) for furthere details). Currently, we support semantic mapping using **dense semantic segmentation**.
+  - `DEEPLABV3`: from `torchvision`, pre-trained on COCO/VOC.
+  - `SEGFORMER`: from `transformers`, pre-trained on Cityscapes or ADE20k.
+  - `CLIP`: from `f3rm` package for open-vocabulary support.
+
+**Semantic features** are assigned to **keypoints** on the image and fused into map points. The semantic features can be:
+- *Labels*: categorical labels as numbers.
+- *Probability vectors*: probability vectors for each class.
+- *Feature vectors*: feature vectors obtained from an encoder. This is generally used for open vocabulary mapping.
+
+The simplest way to test the available segmentation models is to run: `test/semantics/test_semantic_segmentation.py`.
 
 ---
 
@@ -582,6 +604,7 @@ Also referred to as *holistic descriptors*:
 * [HDC-DELF](https://www.tu-chemnitz.de/etit/proaut/hdc_desc)
 * [CosPlace](https://github.com/gmberton/CosPlace)
 * [EigenPlaces](https://github.com/gmberton/EigenPlaces)
+* [Megaloc](https://github.com/gmberton/MegaLoc)
 
 
 Different [loop closing methods](#loop-closing) are available. These combines the above aggregation methods and global descriptors.
@@ -605,6 +628,13 @@ Both monocular and stereo depth prediction models are available. SGBM algorithm 
 * [TSDF](https://arxiv.org/pdf/2110.00511) with voxel block grid (parallel spatial hashing)
 * Incremental 3D Gaussian Splatting. See [here](https://repo-sam.inria.fr/fungraph/3d-gaussian-splatting/) and [MonoGS](https://arxiv.org/abs/2312.06741) for a description of its backend.
 
+
+### Supported semantic segmentation methods
+
+- [DeepLabv3](https://arxiv.org/abs/1706.05587): from `torchvision`, pre-trained on COCO/VOC.
+- [Segformer](https://arxiv.org/abs/2105.15203): from `transformers`, pre-trained on Cityscapes or ADE20k.
+- [CLIP](https://arxiv.org/abs/2212.09506): from `f3rm` package for open-vocabulary support.
+
 --- 
 
 ## Configuration 
@@ -625,6 +655,7 @@ Dataset | type in `config.yaml`
 [EUROC dataset](http://projects.asl.ethz.ch/datasets/doku.php?id=kmavvisualinertialdatasets)          | `type: EUROC_DATASET` 
 [REPLICA dataset](https://github.com/facebookresearch/Replica-Dataset)                                | `type: REPLICA_DATASET` 
 [TARTANAIR dataset](https://theairlab.org/tartanair-dataset/)                                         | `type: TARTANAIR_DATASET` 
+[ScanNet dataset](http://www.scan-net.org/)                                                                                                  | `type: SCANNET_DATASET`
 [ROS1  bags](https://wiki.ros.org/Bags)                                                                                                      | `type: ROS1BAG_DATASET` 
 [ROS2  bags](https://docs.ros.org/en/foxy/Tutorials/Beginner-CLI-Tools/Recording-And-Playing-Back-Data/Recording-And-Playing-Back-Data.html) | `type: ROS2BAG_DATASET` 
 Video file                                                                                                                                   | `type: VIDEO_DATASET` 
@@ -689,6 +720,15 @@ Follow the same instructions provided for the TUM datasets.
 1. You can download the datasets from https://theairlab.org/tartanair-dataset/     
 2. Then, uncompress them and deploy the files as you wish.
 3. Select the corresponding calibration settings file (section `TARTANAIR_DATASET: settings:` in the file `config.yaml`).
+
+#### ScanNet Datasets
+
+1. You can download the datasets following instructions in http://www.scan-net.org/. You will need to request the dataset from the authors.
+2. There are two versions you can download: 
+- A subset of pre-processed data termed as `tasks/scannet_frames_2k`: this version is smaller, and more generally available for training neural networks. However, it only includes one frame out of each 100, which makes it unusable for SLAM. The labels are processed by mapping them from the original Scannet label annotations to NYU40.
+- The raw data: this version is the one used for SLAM. You can download the whole dataset (TBs of data) or specific scenes. A common approach for evaluation of semantic mapping is to use the `scannetv2_val.txt` scenes. For downloading and processing the data, you can use the following [repository](https://github.com/dvdmc/scannet-processing) as the original Scannet repository is tested under Python 2.7 and does't support batch downloading of scenes.
+2. Once you have the `color`, `depth`, `pose`, and (optional for semantic mapping) `label` folders, you should place them following `{path_to_scannet}/scans/{scene_name}/[color, depth, pose, label]`. Then, configure the `base_path` and `name` in the file `config.yaml`.
+3.  Select the corresponding calibration settings file (section `SCANNET_DATASET: settings:` in the file `config.yaml`). NOTE: the RGB images are rescaled to match the depth image. The current intrinsic parametes in the existing calibration file reflect that.
 
 #### ROS1 bags
 
@@ -784,8 +824,9 @@ Moreover, you may want to have a look at the OpenCV [guide](https://docs.opencv.
 * [MonoGS](https://github.com/muskie82/MonoGS)
 * [mast3r](https://github.com/naver/mast3r)
 * [mvdust3r](https://github.com/facebookresearch/mvdust3r)
+* [MegaLoc](https://github.com/gmberton/MegaLoc)
 * Many thanks to [Anathonic](https://github.com/anathonic) for adding the trajectory-saving feature and for the comparison notebook: [pySLAM vs ORB-SLAM3](https://github.com/anathonic/Trajectory-Comparison-ORB-SLAM3-pySLAM/blob/main/trajectories_comparison.ipynb).
-
+* Many thanks to [David Morilla Cabello](https://github.com/dvdmc) for his great work on integrating [semantic predictions](./docs//semantics.md) into pySLAM.
 
 ---
 ## License 
@@ -812,8 +853,12 @@ Many improvements and additional features are currently under development:
 - [x] Stereo and RGBD support
 - [x] Map saving/loading 
 - [x] Modern DL matching algorithms 
-- [ ] Object detection 
-- [ ] Semantic segmentation 
+- [ ] Object detection
+  - [ ] Open vocabulary segment (object) detection
+- [X] Semantic segmentation [WIP by @dvdmc]
+  - [X] Dense closed-set labels
+  - [X] Dense closed-set probability vectors
+  - [X] Dense open vocabulary feature vectors
 - [x] 3D dense reconstruction 
 - [x] Unified install procedure (single branch) for all OSs 
 - [x] Trajectory saving 

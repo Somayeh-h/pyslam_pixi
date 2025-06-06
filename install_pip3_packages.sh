@@ -32,6 +32,8 @@ export WITH_PYTHON_INTERP_CHECK=ON  # in order to detect the correct python inte
 pip3 install --upgrade pip 
 pip3 install --upgrade setuptools wheel
 
+pip3 install setuptools==80.8.0
+
 pip3 install ninja
 
 # Install opencv_python from source with non-free modules enabled 
@@ -56,13 +58,13 @@ install_pip_package pyopengl==3.1.7
 install_pip_package pillow==10.4.0
 install_pip_package pybind11==2.13.1 
 install_pip_package numpy==1.23.5
+install_pip_package numpy-quaternion==2023.0.4
 install_pip_package pyyaml==6.0.1 
 install_pip_package termcolor==2.4.0 
 install_pip_package yacs==0.1.8
 install_pip_package gdown  # to download from google drive
 install_pip_package ordered-set==4.1.0 # from https://pypi.org/project/ordered-set/
 
-install_pip_package numpy-quaternion==2023.0.4
 install_pip_package psutil
 
 install_pip_package PyQt5-sip==12.15.0    # NOTE: This is required by pyqt5. The the next versions of PyQt5-sip require python 3.9.
@@ -86,13 +88,13 @@ install_pip_package hjson    # for reading hjson files (https://hjson.github.io/
 install_pip_package jinja2
 
 install_pip_package timm             # ml-depth-pro
-if [ "$OSTYPE" == "darwin"* ]; then
+if [ "$OSTYPE" == darwin* ]; then
     pip3 install pillow_heif==0.17.0 # ml-depth-pro
 else
     install_pip_package pillow_heif # ml-depth-pro
 fi
 
-if [ "$OSTYPE" == "darwin"* ]; then
+if [ "$OSTYPE" == darwin* ]; then
     install_pip_package torch==2.1           # torch==2.2.0 causes some segmentation faults on mac
     install_pip_package torchvision==0.16         
 else
@@ -168,13 +170,13 @@ fi
 pip3 install evo      #==1.11.0
 pip3 install trimesh  # for utils_dust3r.py 
 
-# pip install jax # not used at the moment 
+# pip3 install jax # not used at the moment 
 # if [ "$CUDA_VERSION" != "0" ]; then
 #     if [[ "$CUDA_VERSION" =~ ^11\. ]]; then
-#         pip install --upgrade "jax[cuda11]" -f https://storage.googleapis.com/jax-releases/jax_cuda_releases.html
+#         pip3 install --upgrade "jax[cuda11]" -f https://storage.googleapis.com/jax-releases/jax_cuda_releases.html
 #     fi
 #     if [[ "$CUDA_VERSION" =~ ^12\. ]]; then
-#         pip install --upgrade "jax[cuda12]" -f https://storage.googleapis.com/jax-releases/jax_cuda_releases.html
+#         pip3 install --upgrade "jax[cuda12]" -f https://storage.googleapis.com/jax-releases/jax_cuda_releases.html
 #     fi
 # fi
 
@@ -229,4 +231,7 @@ else
     print_yellow "Skipping mast3r and mvdust3r since CUDA_VERSION is 0"
 fi
 
+
+# HACK: Moved the install of the semantic tools at the end of the install process to avoid some conflict issues among the deps
+# . install_pip3_semantics.sh
 
