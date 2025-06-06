@@ -972,11 +972,18 @@ class Tracking:
             return # EXIT (jump to next frame)
                 
         # get previous frame in map as reference        
-        f_ref = self.map.get_frame(-1) 
+        f_ref = self.map.get_frame(-1)
+        if f_ref is None:
+            Printer.red("No reference frame found in the map. Adding the current frame as the first frame.")
+            self.map.add_frame(f_cur)  # Add the current frame as the first frame
+            f_ref = f_cur
         #f_ref_2 = self.map.get_frame(-2)
         self.f_ref = f_ref 
         
-        assert f_ref.img_id == f_cur.img_id - 1
+        if f_ref.img_id == 0:
+            assert f_ref.img_id == f_cur.img_id
+        else:
+            assert f_ref.img_id == f_cur.img_id - 1
         
         # add current frame f_cur to map                  
         self.map.add_frame(f_cur)          

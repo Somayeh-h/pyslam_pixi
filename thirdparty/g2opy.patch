@@ -339,3 +339,18 @@ index 52cb983..c3a7d80 100644
      ;
  
  }
+diff --git a/g2o/core/hyper_graph.cpp b/g2o/core/hyper_graph.cpp
+index e5d2fd8..3fe91b8 100644
+--- a/g2o/core/hyper_graph.cpp
++++ b/g2o/core/hyper_graph.cpp
+@@ -33,6 +33,9 @@
+ 
+ namespace g2o {
+ 
++  const int HyperGraph::UnassignedId;
++  const int HyperGraph::InvalidId;
++
+   HyperGraph::Data::Data() {
+     _next = 0;
+     _dataContainer = 0;
+
